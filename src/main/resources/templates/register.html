@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>注册 - 在线智能音乐盒</title>
+    <style>
+        body { display: flex; justify-content: center; align-items: center; height: 100vh; background: #f2f2f2; font-family: "Microsoft YaHei"; }
+        .box { background: #fff; padding: 40px; border-radius: 8px; box-shadow: 0 0 20px rgba(0,0,0,0.1); width: 380px; }
+        .box h2 { text-align: center; margin-bottom: 30px; }
+        .box input { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        .box button { width: 100%; padding: 12px; background: #5FB878; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        .box button:hover { background: #4a9e68; }
+        .box a { display: block; text-align: center; margin-top: 15px; color: #1E9FFF; text-decoration: none; }
+        .msg { text-align: center; margin-bottom: 15px; color: #FF5722; }
+    </style>
+</head>
+<body>
+<div class="box">
+    <h2>🎵 注册新账号</h2>
+    <div id="msg" class="msg"></div>
+    <form id="regForm">
+        <input type="text" id="username" placeholder="用户名（必填）" required>
+        <input type="password" id="password" placeholder="密码（至少6位）" required>
+        <input type="text" id="nickname" placeholder="昵称（可选）">
+        <input type="email" id="email" placeholder="邮箱（可选）">
+        <button type="button" onclick="register()">立即注册</button>
+        <a href="/toLogin">已有账号？去登录</a>
+    </form>
+</div>
+
+<script>
+    function register() {
+        var username = document.getElementById('username').value.trim();
+        var password = document.getElementById('password').value.trim();
+        var nickname = document.getElementById('nickname').value.trim();
+        var email = document.getElementById('email').value.trim();
+        var msg = document.getElementById('msg');
+
+        if (!username || !password) {
+            msg.textContent = '用户名和密码不能为空！';
+            return;
+        }
+        if (password.length < 6) {
+            msg.textContent = '密码长度不能少于6位！';
+            return;
+        }
+
+        var data = { username: username, password: password };
+        if (nickname) data.nickname = nickname;
+        if (email) data.email = email;
+
+        msg.textContent = '注册中...';
+        msg.style.color = '#1E9FFF';
+
+        fetch('/user/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(res => res.json())
+        .then(res => {
+            if (res.code === 0) {
+                msg.textContent = ' 注册成功！即将跳转登录...';
+                msg.style.color = '#5FB878';
+                setTimeout(function() {
+                    window.location.href = '/toLogin';
+                }, 1500);
+            } else {
+                msg.textContent = ' ' + res.msg;
+                msg.style.color = '#FF5722';
+            }
+        })
+        .catch(err => {
+            msg.textContent = ' 网络错误，请稍后再试';
+            msg.style.color = '#FF5722';
+            console.error(err);
+        });
+    }
+</script>
+</body>
+</html>

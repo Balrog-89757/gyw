@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>我的收藏</title>
+    <link rel="stylesheet" th:href="@{/layuiadmin/layui/css/layui.css}" media="all">
+    <style>
+        body { padding: 10px; background: #f2f2f2; }
+        .search-box { padding: 15px 0; }
+        .search-box .layui-input { display: inline-block; width: 200px; margin-right: 10px; }
+        .music-result-item { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee; }
+        .music-result-item:hover { background: #f2f2f2; }
+        .music-result-item .name { color: #333; font-weight: bold; }
+        .music-result-item .singer { color: #888; margin-left: 10px; }
+    </style>
+</head>
+<body>
+<div class="layui-card">
+    <div class="layui-card-header"><h2>❤️ 我的收藏</h2></div>
+    <div class="layui-card-body">
+        <div class="search-box">
+            <input type="text" id="keyword" placeholder="歌曲名称/歌手" class="layui-input" style="display:inline-block;width:250px;">
+            <button class="layui-btn" id="searchBtn">🔍 搜索</button>
+            <button class="layui-btn layui-btn-normal" id="addBtn">➕ 添加收藏</button>
+        </div>
+        <table id="favoriteTable" lay-filter="favoriteTable"></table>
+    </div>
+</div>
+
+<!-- 添加/编辑弹窗模板 -->
+<script type="text/html" id="favoriteFormTpl">
+    <form class="layui-form" style="padding:20px;">
+        <input type="hidden" name="id">
+        <div class="layui-form-item">
+            <label class="layui-form-label">选择歌曲</label>
+            <div class="layui-input-block">
+                <input type="text" id="searchMusicInput" placeholder="输入歌曲名称搜索" class="layui-input" style="display:inline-block;width:70%;">
+                <button type="button" class="layui-btn layui-btn-sm" id="searchMusicBtn">搜索</button>
+                <div id="musicResultList" style="margin-top:8px; max-height:150px; overflow-y:auto; border:1px solid #ddd; display:none;"></div>
+                <input type="hidden" name="musicId" id="selectedMusicId">
+                <div style="margin-top:5px;">
+                    已选：<span id="selectedMusicDisplay" style="color:#5FB878;">未选择</span>
+                </div>
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">备注</label>
+            <div class="layui-input-block">
+                <input type="text" name="remark" id="remark" class="layui-input">
+            </div>
+        </div>
+        <div style="text-align:center;">
+            <button type="button" class="layui-btn" id="submitBtn">提交</button>
+            <button type="button" class="layui-btn layui-btn-primary" id="cancelBtn">取消</button>
+        </div>
+    </form>
+</script>
+
+<script th:src="@{/layuiadmin/layui/layui.js}"></script>
+<script th:inline="none">
+    layui.use(['table','layer','form'], function(){
+        var table = layui.table, layer = layui.layer, form = layui.form, $ = layui.$;
+
+        var tableIns = table.render({
+            elem: '#favoriteTable',
+            url: '/favorite/list',
+            method: 'get',
+            page: { limit: 10, limits: [5, 10, 20, 50] },
+            cols: [[
+                { field:'id', title:'ID', width:80 },
+                { field:'musicName', title:'歌曲名称' },
+                { field:'singer', title:'歌手' },
+                { field:'remark', title:'备注' },
+                { field:'createTime', title:'收藏时间', width:170 },
+                { title:'操作', width:180, fixed:'right',
+                  templet: function(d){
+                      return '<a class="layui-btn layui-btn-xs layui-btn-normal" onclick="edit('+d.id+')">编辑备注</a> ' +
+                             '<a class="layui-btn layui-btn-xs layui-btn-danger" onclick="del('+d.id+')">取消</a>';
+                  }
+                }
+            ]],
+            parseData: function(res){
+                return { code: res.code || 0, msg: res.msg || '', count: res.count || 0, data: res.data || [] };
+            }
+        });
+
+        // 搜索
+        $('#searchBtn').click(function(){
+            var keyword = $('#keyword').val().trim();
+            tableIns.reload({ where: { keyword: keyword }, page: { curr:1 } });
+        });
+
+        // 添加
+        $('#addBtn').click(function(){ openForm(null); });
+
+        // 编辑
+        window.edit = function(id) {
+            $.get('/favorite/get/' + id, function(res){
+                if(res.code===0) openForm(res.data);
+                else layer.msg('获取失败', {icon:2});
+            });
+        };
+
+        // 删除
+        window.del = function(id) {
+            layer.confirm('确定取消该收藏？', function(index){
+                $.ajax({
+                    url: '/favorite/delete/' + id,
+                    type: 'DELETE',
+                    success: function(res){
+                        if(res.code===0){ layer.msg('取消成功', {icon:1}); tableIns.reload(); }
+                        else layer.msg(res.msg, {icon:2});
+                    }
+                });
+                layer.close(index);
+            });
+        };
+
+        // 歌曲搜索
+        function searchMusic(keyword) {
+            if(!keyword.trim()) {
+                $('#musicResultList').hide().empty();
+                return;
+            }
+            $.get('/favorite/searchMusic', { keyword: keyword }, function(res){
+                if(res.code===0 && res.data.length>0){
+                    var html = '';
+                    $.each(res.data, function(i, item){
+                        html += '<div class="music-result-item" data-id="'+item.id+'" data-name="'+item.name+'" data-singer="'+item.singer+'">'+
+                                '<span class="name">'+item.name+'</span>'+
+                                '<span class="singer">'+item.singer+'</span>'+
+                                '</div>';
+                    });
+                    $('#musicResultList').html(html).show();
+                    $('.music-result-item').click(function(){
+                        var id = $(this).data('id');
+                        var name = $(this).data('name');
+                        var singer = $(this).data('singer');
+                        $('#selectedMusicId').val(id);
+                        $('#selectedMusicDisplay').text(name + ' - ' + singer);
+                        $('#musicResultList').hide();
+                    });
+                } else {
+                    $('#musicResultList').html('<div style="padding:8px;color:#999;">未找到匹配的歌曲</div>').show();
+                }
+            });
+        }
+
+        $('#searchMusicBtn').click(function(){
+            var keyword = $('#searchMusicInput').val();
+            searchMusic(keyword);
+        });
+
+        $('#searchMusicInput').keydown(function(e){
+            if(e.keyCode === 13) { $('#searchMusicBtn').click(); }
+        });
+
+        // 打开表单弹窗
+        function openForm(data) {
+            var isEdit = !!data;
+            var url = isEdit ? '/favorite/update' : '/favorite/add';
+            var method = isEdit ? 'PUT' : 'POST';
+            var tpl = $('#favoriteFormTpl').html();
+            var index = layer.open({
+                type:1, title: isEdit?'编辑备注':'添加收藏', area:['500px','420px'], content:tpl,
+                success: function(layero){
+                    if(isEdit){
+                        layero.find('input[name="id"]').val(data.id);
+                        layero.find('#selectedMusicId').val(data.musicId);
+                        // 显示歌曲名称（可通过额外查询，但简单起见显示ID）
+                        layero.find('#selectedMusicDisplay').text('已选音乐ID:'+data.musicId);
+                        layero.find('#remark').val(data.remark);
+                    } else {
+                        layero.find('input[name="id"]').val('');
+                        layero.find('#selectedMusicId').val('');
+                        layero.find('#selectedMusicDisplay').text('未选择');
+                        layero.find('#remark').val('');
+                        $('#musicResultList').hide().empty();
+                    }
+                    form.render();
+                    layero.find('#submitBtn').off('click').on('click', function(){
+                        var musicId = layero.find('#selectedMusicId').val();
+                        if(!musicId){
+                            layer.msg('请先选择一首歌曲', {icon:2});
+                            return;
+                        }
+                        var formData = {
+                            id: layero.find('input[name="id"]').val(),
+                            musicId: parseInt(musicId),
+                            remark: layero.find('#remark').val().trim()
+                        };
+                        $.ajax({
+                            url: url, type: method, contentType:'application/json',
+                            data: JSON.stringify(formData),
+                            success: function(res){
+                                if(res.code===0){
+                                    layer.msg('操作成功', {icon:1});
+                                    layer.close(index);
+                                    tableIns.reload();
+                                } else {
+                                    layer.msg(res.msg, {icon:2});
+                                }
+                            },
+                            error: function(){ layer.msg('请求失败', {icon:2}); }
+                        });
+                    });
+                    layero.find('#cancelBtn').off('click').on('click', function(){ layer.close(index); });
+                }
+            });
+        }
+    });
+</script>
+</body>
+</html>

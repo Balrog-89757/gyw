@@ -1,0 +1,39 @@
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # 数据库连接信息通过环境变量注入，未设置时使用冒号后的默认值
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:music_box}?useSSL=false&useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:change-me}
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 500MB
+  # 模板引擎配置（Layui 使用 Thymeleaf 或 JSP）
+  thymeleaf:
+    cache: false
+    prefix: classpath:/templates/
+    suffix: .html
+    mode: HTML
+    encoding: UTF-8
+    check-template-location: true    # 检查 templates 文件夹是否存在
+    servlet:
+      content-type: text/html
+
+  # 静态资源配置
+  web:
+    resources:
+      static-locations: classpath:/static/,classpath:/templates/
+
+# MyBatis-Plus 配置
+mybatis-plus:
+  mapper-locations: classpath:/mappers/*.xml
+  type-aliases-package: com.baidu.pojo
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl  # 开发环境打印SQL
+
+# 日志配置
+logging:
+  level:
+    com.baidu.dao: debug

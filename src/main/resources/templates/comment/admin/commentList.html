@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>评论管理</title>
+    <link rel="stylesheet" th:href="@{/layuiadmin/layui/css/layui.css}" media="all">
+</head>
+<body>
+<div class="layui-card" style="padding:10px;">
+    <h2>💬 评论管理</h2>
+    <div style="margin:10px 0;">
+        <input type="text" id="keyword" placeholder="评论内容关键词" class="layui-input" style="display:inline-block;width:250px;">
+        <button class="layui-btn" id="searchBtn">搜索</button>
+    </div>
+    <table id="commentTable" lay-filter="commentTable"></table>
+</div>
+
+<script th:src="@{/layuiadmin/layui/layui.js}"></script>
+<script th:inline="none">
+    layui.use(['table','layer'], function(){
+        var table = layui.table, layer = layui.layer, $ = layui.$;
+        var tableIns = table.render({
+            elem: '#commentTable',
+            url: '/comment/admin/list',
+            page: { limit: 10 },
+            cols: [[
+                { field:'id', title:'ID' },
+                { field:'userId', title:'用户ID' },
+                { field:'musicId', title:'音乐ID' },
+                { field:'content', title:'评论内容' },
+                { field:'likeCount', title:'点赞数' },
+                { field:'createTime', title:'评论时间' },
+                { title:'操作', templet: function(d){
+                    return '<a class="layui-btn layui-btn-xs layui-btn-danger" onclick="del('+d.id+')">删除</a>';
+                }}
+            ]],
+            parseData: function(res){ return { code:res.code||0, count:res.count||0, data:res.data||[] }; }
+        });
+
+        $('#searchBtn').click(function(){
+            tableIns.reload({ where: { keyword: $('#keyword').val().trim() }, page: { curr:1 } });
+        });
+
+        window.del = function(id) {
+            layer.confirm('确定删除该评论？', function(idx){
+                $.ajax({ url:'/comment/admin/delete/'+id, type:'DELETE', success:function(res){
+                    if(res.code===0){ layer.msg('删除成功'); tableIns.reload(); }
+                    else layer.msg(res.msg);
+                }});
+                layer.close(idx);
+            });
+        };
+    });
+</script>
+</body>
+</html>

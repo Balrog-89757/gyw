@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>音乐管理</title>
+    <link rel="stylesheet" th:href="@{/layuiadmin/layui/css/layui.css}" media="all">
+    <style>
+        body { padding: 10px; background: #f2f2f2; }
+        .search-box { padding: 15px 0; }
+        .search-box .layui-input { display: inline-block; width: 200px; margin-right: 10px; }
+        .music-cover { width: 50px; height: 50px; object-fit: cover; border-radius: 4px; }
+        .cover-preview { margin-top: 5px; }
+        .cover-preview img { width: 60px; height: 60px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; }
+        .file-tip { color: #999; font-size: 12px; margin-left: 5px; }
+    </style>
+</head>
+<body>
+<div class="layui-card">
+    <div class="layui-card-header"><h2>🎵 音乐管理</h2></div>
+    <div class="layui-card-body">
+        <div class="search-box">
+            <input type="text" id="keyword" placeholder="歌曲名/歌手" class="layui-input" style="display:inline-block;width:250px;">
+            <button class="layui-btn" id="searchBtn">搜索</button>
+            <button class="layui-btn layui-btn-normal" id="addBtn">添加音乐</button>
+        </div>
+        <table id="musicTable" lay-filter="musicTable"></table>
+    </div>
+</div>
+
+<!-- 表单弹窗模板（已添加 lay-filter） -->
+<script type="text/html" id="musicFormTpl">
+    <form class="layui-form" lay-filter="musicForm" style="padding:20px;" enctype="multipart/form-data">
+        <input type="hidden" name="id">
+        <div class="layui-form-item">
+            <label class="layui-form-label">歌曲名</label>
+            <div class="layui-input-block">
+                <input type="text" name="name" required class="layui-input" placeholder="请输入歌曲名">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">歌手</label>
+            <div class="layui-input-block">
+                <input type="text" name="singer" required class="layui-input" placeholder="请输入歌手">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">专辑</label>
+            <div class="layui-input-block">
+                <input type="text" name="album" class="layui-input" placeholder="请输入专辑名（可选）">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">时长(秒)</label>
+            <div class="layui-input-block">
+                <input type="number" name="duration" class="layui-input" placeholder="如：230">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">热门</label>
+            <div class="layui-input-block">
+                <select name="isHot">
+                    <option value="0">否</option>
+                    <option value="1">是</option>
+                </select>
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">状态</label>
+            <div class="layui-input-block">
+                <select name="status">
+                    <option value="1">上架</option>
+                    <option value="0">下架</option>
+                </select>
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">封面</label>
+            <div class="layui-input-block">
+                <input type="file" name="coverFile" accept="image/*" class="layui-input">
+                <span class="file-tip">留空则不修改</span>
+                <!-- 编辑时显示封面预览 -->
+                <div class="cover-preview" id="coverPreview" style="display:none;">
+                    <img id="coverPreviewImg" src="" alt="封面预览">
+                </div>
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">音乐文件</label>
+            <div class="layui-input-block">
+                <input type="file" name="musicFile" accept="audio/*" class="layui-input">
+                <span class="file-tip">留空则不修改</span>
+            </div>
+        </div>
+        <div style="text-align:center; margin-top:10px;">
+            <button type="button" class="layui-btn" id="submitBtn">提交</button>
+            <button type="button" class="layui-btn layui-btn-primary" id="cancelBtn">取消</button>
+        </div>
+    </form>
+</script>
+
+<script th:src="@{/layuiadmin/layui/layui.js}"></script>
+<script th:inline="none">
+    layui.use(['table','layer','form'], function(){
+        var table = layui.table, layer = layui.layer, form = layui.form, $ = layui.$;
+        var tableIns = table.render({
+            elem: '#musicTable',
+            url: '/music/admin/list',
+            page: { limit: 10 },
+            cols: [[
+                { type:'checkbox' },
+                { field:'id', title:'ID' },
+                { field:'coverUrl', title:'封面', templet: function(d){
+                    return '<img src="'+(d.coverUrl||'/img/default-cover.jpg')+'" class="music-cover">';
+                }},
+                { field:'name', title:'歌曲名' },
+                { field:'singer', title:'歌手' },
+                { field:'album', title:'专辑' },
+                { field:'isHot', title:'热门', templet: function(d){ return d.isHot==1?'🔥':''; }},
+                { field:'status', title:'状态', templet: function(d){ return d.status==1?'上架':'下架'; }},
+                { field:'createTime', title:'创建时间' },
+                { title:'操作', templet: function(d){
+                    return '<a class="layui-btn layui-btn-xs layui-btn-normal" onclick="edit('+d.id+')">编辑</a> '+
+                           '<a class="layui-btn layui-btn-xs layui-btn-danger" onclick="del('+d.id+')">删除</a>';
+                }}
+            ]],
+            parseData: function(res){ return { code:res.code||0, count:res.count||0, data:res.data||[] }; }
+        });
+
+        // ===== 搜索 =====
+        $('#searchBtn').click(function(){
+            tableIns.reload({ where: { keyword: $('#keyword').val().trim() }, page: { curr:1 } });
+        });
+
+        // ===== 编辑 =====
+        window.edit = function(id) {
+            $.get('/music/admin/get/'+id, function(res){
+                if(res.code===0) {
+                    openForm(res.data);
+                } else {
+                    layer.msg('获取数据失败', {icon:2});
+                }
+            });
+        };
+
+        // ===== 删除 =====
+        window.del = function(id) {
+            layer.confirm('确定删除？', function(idx){
+                $.ajax({
+                    url:'/music/admin/delete/'+id,
+                    type:'DELETE',
+                    success:function(res){
+                        if(res.code===0){ layer.msg('删除成功',{icon:1}); tableIns.reload(); }
+                        else layer.msg(res.msg,{icon:2});
+                    }
+                });
+                layer.close(idx);
+            });
+        };
+
+        // ===== 添加按钮 =====
+        $('#addBtn').click(function(){ openForm(null); });
+
+        // ===== 打开表单弹窗 =====
+        function openForm(data) {
+            var isEdit = !!data;
+            var title = isEdit ? '编辑音乐' : '添加音乐';
+            var url = isEdit ? '/music/admin/update' : '/music/admin/add';
+            var method = isEdit ? 'PUT' : 'POST';
+
+            var tpl = $('#musicFormTpl').html();
+            var index = layer.open({
+                type:1,
+                title: title,
+                area: ['520px', '580px'],
+                content: tpl,
+                success: function(layero){
+                    // ===== 数据回显 =====
+                    if(isEdit){
+
+                        form.val('musicForm', {
+                            id: data.id,
+                            name: data.name,
+                            singer: data.singer,
+                            album: data.album,
+                            duration: data.duration,
+                            isHot: data.isHot,
+                            status: data.status
+                        });
+                        // 隐藏域单独设置
+                        layero.find('input[name="id"]').val(data.id);
+
+                        // 显示封面预览（如果有）
+                        if(data.coverUrl){
+                            var previewDiv = layero.find('#coverPreview');
+                            var previewImg = layero.find('#coverPreviewImg');
+                            previewImg.attr('src', data.coverUrl);
+                            previewDiv.show();
+                        }
+                    } else {
+                        //
+                        form.val('musicForm', {
+                            id: '',
+                            name: '',
+                            singer: '',
+                            album: '',
+                            duration: '',
+                            isHot: 0,
+                            status: 1
+                        });
+                        layero.find('#coverPreview').hide();
+                    }
+
+                    // 重新渲染表单
+                    form.render();
+
+                    // ===== 提交按钮 =====
+                    layero.find('#submitBtn').off('click').on('click', function(){
+                        var fd = new FormData(layero.find('form')[0]);
+                        if(isEdit) fd.append('id', data.id);
+
+                        // 简单校验
+                        if(!isEdit){
+                            var musicFile = layero.find('input[name="musicFile"]')[0].files[0];
+                            if(!musicFile){
+                                layer.msg('请选择音乐文件', {icon:2});
+                                return;
+                            }
+                        }
+
+                        $.ajax({
+                            url: url,
+                            type: method,
+                            data: fd,
+                            processData: false,
+                            contentType: false,
+                            success: function(res){
+                                if(res.code===0){
+                                    layer.msg('操作成功',{icon:1});
+                                    layer.close(index);
+                                    tableIns.reload();
+                                } else {
+                                    layer.msg(res.msg,{icon:2});
+                                }
+                            },
+                            error: function(){
+                                layer.msg('请求失败',{icon:2});
+                            }
+                        });
+                    });
+
+                    // ===== 取消按钮 =====
+                    layero.find('#cancelBtn').off('click').on('click', function(){
+                        layer.close(index);
+                    });
+                }
+            });
+        }
+    });
+</script>
+</body>
+</html>

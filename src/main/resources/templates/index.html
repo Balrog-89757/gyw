@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <title>在线智能音乐盒 - 首页</title>
+    <meta name="renderer" content="webkit">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" th:href="@{/layuiadmin/layui/css/layui.css}" media="all">
+    <link rel="stylesheet" th:href="@{/layuiadmin/style/admin.css}" media="all">
+    <style>
+        body { background: #f5f5f5; font-family: "Microsoft YaHei"; }
+        .layui-card { border-radius: 8px; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 15px; }
+
+        /* 导航栏 */
+        .nav-bar { background: #2F4056; color: #fff; border-radius: 8px 8px 0 0; }
+        .nav-bar .layui-nav { background: none; }
+        .nav-bar .layui-nav .layui-nav-item a { color: #fff; }
+        .nav-bar .layui-nav .layui-this a { color: #5FB878; }
+        .nav-bar .layui-nav .layui-nav-item a:hover { color: #5FB878; }
+
+        /* 搜索框 */
+        .search-box { text-align: center; padding: 20px 0; }
+        .search-box .layui-input { display: inline-block; width: 400px; height: 40px; border-radius: 20px 0 0 20px; border: 1px solid #ddd; padding-left: 15px; }
+        .search-box .layui-btn { height: 40px; line-height: 40px; border-radius: 0 20px 20px 0; background: #5FB878; }
+        .search-box .layui-btn-primary { border-radius: 20px; margin-left: 10px; }
+
+        /* 热门推荐 */
+        .hot-section { background: #fff; padding: 20px; border-radius: 8px; margin-top: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .hot-item { text-align: center; margin-bottom: 15px; }
+        .hot-item img { width: 100%; height: 150px; object-fit: cover; border-radius: 8px; }
+        .hot-item .name { font-weight: bold; margin-top: 8px; }
+        .hot-item .singer { color: #888; font-size: 13px; }
+
+        /* 音乐列表卡片 */
+        .music-card { background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: all 0.3s; margin-bottom: 20px; }
+        .music-card:hover { transform: translateY(-4px); box-shadow: 0 8px 25px rgba(0,0,0,0.15); }
+        .music-card .cover { width: 100%; height: 200px; object-fit: cover; }
+        .music-card .info { padding: 12px 15px; }
+        .music-card .info .name { font-size: 16px; font-weight: bold; color: #333; display: flex; justify-content: space-between; }
+        .music-card .info .singer { color: #999; font-size: 14px; margin-top: 5px; }
+        .music-card .info .singer i { margin-right: 5px; }
+        .music-card .info .play-count { float: right; color: #bbb; font-size: 12px; }
+        .music-card .actions { margin-top: 12px; }
+        .music-card .actions .layui-btn { padding: 0 12px; height: 28px; line-height: 28px; font-size: 12px; border-radius: 14px; }
+        .music-card .actions .layui-btn+.layui-btn { margin-left: 5px; }
+
+        .hot-tag { background: #FF5722; color: #fff; padding: 0 8px; border-radius: 10px; font-size: 11px; margin-left: 5px; }
+
+        /* 分页 */
+        .page-wrapper { text-align: center; padding: 20px 0; }
+
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .search-box .layui-input { width: 60%; }
+            .music-card .cover { height: 150px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- ===== 导航栏 ===== -->
+    <div class="layui-row">
+        <div class="layui-col-md12">
+            <div class="nav-bar">
+                <ul class="layui-nav" lay-filter="nav">
+                    <li class="layui-nav-item layui-this"><a th:href="@{/}">🎵 首页</a></li>
+                    <li class="layui-nav-item"><a href="#hot">🔥 热门推荐</a></li>
+                    <li class="layui-nav-item" th:if="${session.user != null}">
+                        <a th:href="@{/toUserIndex}">👤 个人中心</a>
+                    </li>
+                    <li class="layui-nav-item" th:if="${session.user == null}">
+                        <a th:href="@{/toLogin}">登录</a>
+                    </li>
+                    <li class="layui-nav-item" th:if="${session.user == null}">
+                        <a th:href="@{/toRegister}">注册</a>
+                    </li>
+                    <li class="layui-nav-item" th:if="${session.user != null}" style="float:right;">
+                        <span style="color:#fff; line-height:60px;">
+                            欢迎，<span th:text="${session.user.nickname != null ? session.user.nickname : session.user.username}"></span>
+                            <a href="javascript:;" id="logoutBtn" style="color:#fff; margin-left:15px;">退出</a>
+                        </span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 搜索框 ===== -->
+    <div class="layui-row">
+        <div class="layui-col-md12">
+            <div class="search-box">
+                <form class="layui-form" action="/" method="get">
+                    <input type="text" name="keyword" placeholder="输入歌曲名称或歌手..."
+                           class="layui-input" th:value="${keyword}">
+                    <button type="submit" class="layui-btn layui-btn-normal">🔍 搜索</button>
+                    <a th:href="@{/}" class="layui-btn layui-btn-primary">全部音乐</a>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 热门推荐 ===== -->
+    <div class="layui-row" id="hot">
+        <div class="layui-col-md12">
+            <div class="hot-section">
+                <h2 style="margin:0 0 15px 0; display:flex; justify-content:space-between; align-items:center;">
+                    <span>🔥 热门推荐</span>
+                    <span style="font-size:14px;color:#999;font-weight:normal;">根据播放量和热度精选</span>
+                </h2>
+                <div class="layui-row">
+                    <div class="layui-col-md2 layui-col-sm3 layui-col-xs6" th:each="music : ${hotList}">
+                        <div class="hot-item">
+                            <a th:href="@{/music/detail/{id}(id=${music.id})}">
+                                <img th:src="@{${music.coverUrl != null ? music.coverUrl : '/img/default-cover.jpg'}}" alt="封面">
+                            </a>
+                            <div class="name">
+                                <span th:text="${music.name}">歌名</span>
+                                <span class="hot-tag" th:if="${music.isHot == 1}">HOT</span>
+                            </div>
+                            <div class="singer" th:text="${music.singer != null ? music.singer : '未知歌手'}">歌手</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== 全部音乐列表 ===== -->
+    <div class="layui-row" style="margin-top:20px;">
+        <div class="layui-col-md12">
+            <h2 style="display:flex; justify-content:space-between; align-items:center;">
+                <span>🎶 全部音乐</span>
+                <span style="font-size:14px;color:#999;font-weight:normal;">共 <span th:text="${totalCount}"></span> 首</span>
+            </h2>
+            <div class="layui-row">
+                <div class="layui-col-md3 layui-col-sm4 layui-col-xs6" th:each="music : ${list}">
+                    <div class="music-card">
+                        <a th:href="@{/music/detail/{id}(id=${music.id})}">
+                            <img class="cover" th:src="@{${music.coverUrl != null ? music.coverUrl : '/img/default-cover.jpg'}}" alt="封面">
+                        </a>
+                        <div class="info">
+                            <div class="name">
+                                <span th:text="${music.name}">歌名</span>
+                                <span class="hot-tag" th:if="${music.isHot == 1}">🔥</span>
+                            </div>
+                            <div class="singer">
+                                <i class="layui-icon layui-icon-user"></i>
+                                <span th:text="${music.singer != null ? music.singer : '未知歌手'}">歌手</span>
+                                <span class="play-count">▶ <span th:text="${music.playCount}">0</span></span>
+                            </div>
+                            <div class="actions">
+                                <!-- 播放（跳转详情页） -->
+                                <a th:href="@{/music/detail/{id}(id=${music.id})}" class="layui-btn layui-btn-xs layui-btn-normal">▶ 播放</a>
+                                <!-- 收藏（需登录，异步） -->
+                                <a th:if="${session.user != null}" href="javascript:;" class="layui-btn layui-btn-xs layui-btn-warm favorite-btn"
+                                   th:data-musicid="${music.id}">❤ 收藏</a>
+                                <!-- 评论（跳转详情页锚点） -->
+                                <a th:href="@{/music/detail/{id}(id=${music.id})}" class="layui-btn layui-btn-xs layui-btn-primary">💬 评论</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== 分页 ===== -->
+            <div class="page-wrapper">
+                <div id="pageDiv"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 隐藏参数 -->
+    <input type="hidden" id="current" th:value="${pages}">
+    <input type="hidden" id="totalCount" th:value="${totalCount}">
+    <input type="hidden" id="keyword" th:value="${keyword}">
+</div>
+
+<script th:src="@{/layuiadmin/layui/layui.js}"></script>
+<script>
+    var pages = parseInt(document.getElementById('current').value) || 1;
+    var totalCount = parseInt(document.getElementById('totalCount').value) || 0;
+    var keyword = document.getElementById('keyword').value || '';
+
+    layui.use(['laypage', 'layer'], function(){
+        var laypage = layui.laypage;
+        var layer = layui.layer;
+        var $ = layui.$;
+
+        // 分页渲染
+        if(totalCount > 0){
+            laypage.render({
+                elem: 'pageDiv',
+                count: totalCount,
+                limit: 8,
+                curr: pages,
+                jump: function(obj, first){
+                    if(!first){
+                        var url = '/?currentPage=' + obj.curr;
+                        if(keyword) url += '&keyword=' + encodeURIComponent(keyword);
+                        location.href = url;
+                    }
+                }
+            });
+        }
+
+        // 收藏功能
+        $('.favorite-btn').click(function(){
+            var musicId = $(this).data('musicid');
+            var $btn = $(this);
+            layer.confirm('确定收藏该音乐吗？', function(index){
+                $.ajax({
+                    url: '/favorite/add',
+                    type: 'POST',
+                    data: { musicId: musicId },
+                    success: function(res){
+                        if(res.code === 0){
+                            layer.msg('❤️ 收藏成功！', {icon: 1});
+                            $btn.text('❤️ 已收藏').css('background', '#FFB800');
+                        } else {
+                            layer.msg(res.msg, {icon: 2});
+                        }
+                    },
+                    error: function(){
+                        layer.msg('请求失败，请稍后重试', {icon: 2});
+                    }
+                });
+                layer.close(index);
+            });
+        });
+
+        // 退出登录
+        $('#logoutBtn').click(function(){
+            layer.confirm('确定要退出登录吗？', function(index){
+                $.ajax({
+                    url: '/user/logout',
+                    type: 'POST',
+                    success: function(res){
+                        if(res.code === 0){
+                            layer.msg('已退出', {icon:1, time:1000}, function(){
+                                location.href = '/toLogin';
+                            });
+                        }
+                    }
+                });
+                layer.close(index);
+            });
+        });
+    });
+</script>
+</body>
+</html>

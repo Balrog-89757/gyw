@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>我的评论</title>
+    <link rel="stylesheet" th:href="@{/layuiadmin/layui/css/layui.css}" media="all">
+    <style>
+        body { padding: 10px; background: #f2f2f2; }
+        .search-box { padding: 15px 0; }
+        .search-box .layui-input { display: inline-block; width: 200px; margin-right: 10px; }
+    </style>
+</head>
+<body>
+<div class="layui-card">
+    <div class="layui-card-header"><h2>💬 我的评论</h2></div>
+    <div class="layui-card-body">
+        <div class="search-box">
+            <input type="text" id="keyword" placeholder="评论内容关键词" class="layui-input" style="display:inline-block;width:250px;">
+            <button class="layui-btn" id="searchBtn">🔍 搜索</button>
+            <button class="layui-btn layui-btn-normal" id="addBtn">➕ 发表评论</button>
+        </div>
+        <table id="commentTable" lay-filter="commentTable"></table>
+    </div>
+</div>
+
+<!-- 添加/编辑弹窗模板 -->
+<script type="text/html" id="commentFormTpl">
+    <form class="layui-form" style="padding:20px;">
+        <input type="hidden" name="id">
+        <div class="layui-form-item">
+            <label class="layui-form-label">音乐ID</label>
+            <div class="layui-input-block">
+                <input type="number" name="musicId" id="musicId" required class="layui-input">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">评论内容</label>
+            <div class="layui-input-block">
+                <textarea name="content" id="content" class="layui-textarea" required></textarea>
+            </div>
+        </div>
+        <div style="text-align:center;">
+            <button type="button" class="layui-btn" id="submitBtn">提交</button>
+            <button type="button" class="layui-btn layui-btn-primary" id="cancelBtn">取消</button>
+        </div>
+    </form>
+</script>
+
+<script th:src="@{/layuiadmin/layui/layui.js}"></script>
+<script th:inline="none">
+    layui.use(['table','layer','form'], function(){
+        var table = layui.table, layer = layui.layer, form = layui.form, $ = layui.$;
+
+        var tableIns = table.render({
+            elem: '#commentTable',
+            url: '/comment/my/list',   // ✅ 用户自己的评论接口
+            method: 'get',
+            page: { limit: 10, limits: [5, 10, 20, 50] },
+            cols: [[
+                { field:'id', title:'ID', width:80 },
+                { field:'musicId', title:'音乐ID', width:100 },
+                { field:'content', title:'评论内容' },
+                { field:'likeCount', title:'点赞数', width:80 },
+                { field:'createTime', title:'评论时间', width:170 },
+                { title:'操作', width:180, fixed:'right',
+                  templet: function(d){
+                      return '<a class="layui-btn layui-btn-xs layui-btn-normal" onclick="edit('+d.id+')">编辑</a> ' +
+                             '<a class="layui-btn layui-btn-xs layui-btn-danger" onclick="del('+d.id+')">删除</a>';
+                  }
+                }
+            ]],
+            parseData: function(res){
+                return { code: res.code || 0, msg: res.msg || '', count: res.count || 0, data: res.data || [] };
+            }
+        });
+
+        // 搜索
+        $('#searchBtn').click(function(){
+            var keyword = $('#keyword').val().trim();
+            tableIns.reload({ where: { keyword: keyword }, page: { curr:1 } });
+        });
+
+        // 添加
+        $('#addBtn').click(function(){ openForm(null); });
+
+        // 编辑
+        window.edit = function(id) {
+            $.get('/comment/get/' + id, function(res){
+                if(res.code===0) openForm(res.data);
+                else layer.msg('获取失败', {icon:2});
+            });
+        };
+
+        // 删除
+        window.del = function(id) {
+            layer.confirm('确定删除该评论吗？', function(index){
+                $.ajax({
+                    url: '/comment/delete/' + id,
+                    type: 'DELETE',
+                    success: function(res){
+                        if(res.code===0){ layer.msg('删除成功', {icon:1}); tableIns.reload(); }
+                        else layer.msg(res.msg, {icon:2});
+                    }
+                });
+                layer.close(index);
+            });
+        };
+
+        // 打开表单弹窗
+        function openForm(data) {
+            var isEdit = !!data;
+            var url = isEdit ? '/comment/update' : '/comment/add';
+            var method = isEdit ? 'PUT' : 'POST';
+            var tpl = $('#commentFormTpl').html();
+            var index = layer.open({
+                type:1, title: isEdit?'编辑评论':'发表评论', area:['450px','400px'], content:tpl,
+                success: function(layero){
+                    if(isEdit){
+                        layero.find('input[name="id"]').val(data.id);
+                        layero.find('#musicId').val(data.musicId);
+                        layero.find('#content').val(data.content);
+                    } else {
+                        layero.find('input[name="id"]').val('');
+                        layero.find('#musicId').val('');
+                        layero.find('#content').val('');
+                    }
+                    form.render();
+                    layero.find('#submitBtn').off('click').on('click', function(){
+                        var formData = {
+                            id: layero.find('input[name="id"]').val(),
+                            musicId: parseInt(layero.find('#musicId').val()),
+                            content: layero.find('#content').val().trim()
+                        };
+                        if(!formData.musicId){ layer.msg('音乐ID不能为空', {icon:2}); return; }
+                        if(!formData.content){ layer.msg('评论内容不能为空', {icon:2}); return; }
+                        $.ajax({
+                            url: url, type: method, contentType:'application/json',
+                            data: JSON.stringify(formData),
+                            success: function(res){
+                                if(res.code===0){ layer.msg('操作成功', {icon:1}); layer.close(index); tableIns.reload(); }
+                                else layer.msg(res.msg, {icon:2});
+                            },
+                            error: function(){ layer.msg('请求失败', {icon:2}); }
+                        });
+                    });
+                    layero.find('#cancelBtn').off('click').on('click', function(){ layer.close(index); });
+                }
+            });
+        }
+    });
+</script>
+</body>
+</html>

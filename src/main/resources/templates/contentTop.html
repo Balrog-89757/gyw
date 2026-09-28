@@ -1,0 +1,96 @@
+<div class="layui-header" th:fragment="top" xmlns:th="http://www.thymeleaf.org">
+    <!-- 头部区域 -->
+    <ul class="layui-nav layui-layout-left">
+        <li class="layui-nav-item layadmin-flexible" lay-unselect>
+            <a href="javascript:;" layadmin-event="flexible" title="侧边伸缩">
+                <i class="layui-icon layui-icon-shrink-right" id="LAY_app_flexible"></i>
+            </a>
+        </li>
+        <li class="layui-nav-item layui-hide-xs" lay-unselect>
+            <a th:href="@{/}" target="_top" title="首页">
+                <i class="layui-icon layui-icon-website"></i>
+            </a>
+        </li>
+        <li class="layui-nav-item" lay-unselect>
+            <a href="javascript:;" layadmin-event="refresh" title="刷新">
+                <i class="layui-icon layui-icon-refresh-3"></i>
+            </a>
+        </li>
+        <li class="layui-nav-item layui-hide-xs" lay-unselect>
+            <input type="text" placeholder="搜索..." autocomplete="off" class="layui-input layui-input-search" layadmin-event="search" lay-action="/?keyword=">
+        </li>
+    </ul>
+    <ul class="layui-nav layui-layout-right" lay-filter="layadmin-layout-right">
+
+        <li class="layui-nav-item" lay-unselect>
+            <a lay-href="app/message/index.html" layadmin-event="message" lay-text="消息中心">
+                <i class="layui-icon layui-icon-notice"></i>
+                <span class="layui-badge-dot"></span>
+            </a>
+        </li>
+        <li class="layui-nav-item layui-hide-xs" lay-unselect>
+            <a href="javascript:;" layadmin-event="theme">
+                <i class="layui-icon layui-icon-theme"></i>
+            </a>
+        </li>
+        <li class="layui-nav-item layui-hide-xs" lay-unselect>
+            <a href="javascript:;" layadmin-event="note">
+                <i class="layui-icon layui-icon-note"></i>
+            </a>
+        </li>
+        <li class="layui-nav-item layui-hide-xs" lay-unselect>
+            <a href="javascript:;" layadmin-event="fullscreen">
+                <i class="layui-icon layui-icon-screen-full"></i>
+            </a>
+        </li>
+
+        <!-- 用户信息 -->
+        <li class="layui-nav-item" lay-unselect>
+            <a href="javascript:;">
+                <img src="/img/default-avatar.png" class="layui-nav-img"
+                     th:src="${session.user != null && session.user.avatar != null ? session.user.avatar : '/img/default-avatar.png'}">
+                <cite th:text="${session.user != null ? (session.user.nickname != null ? session.user.nickname : session.user.username) : '未登录'}">管理员</cite>
+            </a>
+            <dl class="layui-nav-child">
+                <dd th:if="${session.user != null}"><a lay-href="/user/profile">基本资料</a></dd>
+                <dd th:if="${session.user != null}"><a lay-href="/user/profile/changePwd">修改密码</a></dd>
+                <hr th:if="${session.user != null}">
+                <dd th:if="${session.user != null}" style="text-align: center;">
+                    <a href="javascript:void(0);" onclick="window.logout()">退出</a>
+                </dd>
+                <dd th:if="${session.user == null}"><a th:href="@{/toLogin}">去登录</a></dd>
+            </dl>
+        </li>
+
+        <li class="layui-nav-item layui-hide-xs" lay-unselect>
+            <a href="javascript:;" layadmin-event="about"><i class="layui-icon layui-icon-more-vertical"></i></a>
+        </li>
+        <li class="layui-nav-item layui-show-xs-inline-block layui-hide-sm" lay-unselect>
+            <a href="javascript:;" layadmin-event="more"><i class="layui-icon layui-icon-more-vertical"></i></a>
+        </li>
+    </ul>
+</div>
+
+<!-- 退出登录 JS（全局挂载） -->
+<script th:inline="javascript" xmlns:th="http://www.thymeleaf.org">
+    window.logout = function() {
+        if (!confirm('确定要退出登录吗？')) return;
+
+        fetch('/user/logout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (data.code === 0) {
+                window.location.href = '/toLogin';
+            } else {
+                alert('退出失败：' + data.msg);
+            }
+        })
+        .catch(function(err) {
+            console.error('退出请求失败:', err);
+            window.location.href = '/toLogin';
+        });
+    };
+</script>

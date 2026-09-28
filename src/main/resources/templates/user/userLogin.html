@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>登录</title>
+    <style>
+        /* 简单的样式 */
+        body { background: #f2f2f2; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        .box { background: #fff; padding: 40px; border-radius: 8px; box-shadow: 0 0 20px rgba(0,0,0,0.1); width: 360px; }
+        .box h2 { text-align: center; }
+        .form-group { margin-bottom: 20px; }
+        .form-group input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
+        .btn { width: 100%; padding: 10px; background: #5FB878; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+        .error { color: red; text-align: center; margin-bottom: 10px; display: none; }
+        .link { text-align: center; margin-top: 15px; }
+    </style>
+</head>
+<body>
+<div class="box">
+    <h2>🎵 登录</h2>
+    <div id="errorMsg" class="error"></div>
+    <div class="form-group">
+        <input type="text" id="username" placeholder="请输入用户名">
+    </div>
+    <div class="form-group">
+        <input type="password" id="password" placeholder="请输入密码">
+    </div>
+    <button class="btn" onclick="doLogin()">登 录</button>
+    <div class="link">还没有账号？<a href="/toRegister">立即注册</a></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+<script>
+    function doLogin() {
+        var username = $('#username').val();
+        var password = $('#password').val();
+        if (!username || !password) {
+            $('#errorMsg').text('请输入用户名和密码').show();
+            return;
+        }
+        $.ajax({
+            url: '/user/login',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({username: username, password: password}),
+            success: function(res) {
+                if (res.code === 0) {
+                    // 登录成功，根据角色跳转
+                    if (res.data && res.data.role === 1) {
+                        window.location.href = '/toIndex';
+                    } else {
+                        window.location.href = '/index';
+                    }
+                } else {
+                    $('#errorMsg').text(res.msg).show();
+                }
+            },
+            error: function() {
+                $('#errorMsg').text('服务器异常，请稍后再试').show();
+            }
+        });
+    }
+</script>
+</body>
+</html>

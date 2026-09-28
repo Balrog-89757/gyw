@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>热门推荐管理</title>
+    <link rel="stylesheet" th:href="@{/layuiadmin/layui/css/layui.css}" media="all">
+    <style>
+        body { padding: 10px; background: #f2f2f2; }
+        .layui-card { border-radius: 8px; }
+        .search-box { padding: 15px 0; }
+        .search-box .layui-input { display: inline-block; width: 250px; margin-right: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="layui-card">
+    <div class="layui-card-header"><h2>🔥 热门推荐管理</h2></div>
+    <div class="layui-card-body">
+        <div class="search-box">
+            <input type="text" id="keyword" placeholder="请输入推荐标题" class="layui-input" style="display:inline-block;width:250px;">
+            <button class="layui-btn" id="searchBtn">🔍 搜索</button>
+            <button class="layui-btn layui-btn-normal" id="addBtn">➕ 添加推荐</button>
+        </div>
+        <table id="hotTable" lay-filter="hotTable"></table>
+    </div>
+</div>
+
+<!-- 表单弹窗模板（添加 lay-filter） -->
+<script type="text/html" id="hotFormTpl">
+    <form class="layui-form" lay-filter="hotForm" style="padding:20px;">
+        <input type="hidden" name="id" id="editId">
+        <div class="layui-form-item">
+            <label class="layui-form-label">音乐ID</label>
+            <div class="layui-input-block">
+                <input type="number" name="musicId" id="musicId" required class="layui-input">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">排序号</label>
+            <div class="layui-input-block">
+                <input type="number" name="sortOrder" id="sortOrder" class="layui-input">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">推荐标题</label>
+            <div class="layui-input-block">
+                <input type="text" name="recommendTitle" id="recommendTitle" class="layui-input">
+            </div>
+        </div>
+        <div class="layui-form-item">
+            <label class="layui-form-label">状态</label>
+            <div class="layui-input-block">
+                <select name="status" id="status">
+                    <option value="1">启用</option>
+                    <option value="0">禁用</option>
+                </select>
+            </div>
+        </div>
+        <div style="text-align:center;">
+            <button type="button" class="layui-btn" id="submitBtn">提交</button>
+            <button type="button" class="layui-btn layui-btn-primary" id="cancelBtn">取消</button>
+        </div>
+    </form>
+</script>
+
+<script th:src="@{/layuiadmin/layui/layui.js}"></script>
+<script th:inline="none">
+    layui.use(['table','layer','form'], function(){
+        var table = layui.table;
+        var layer = layui.layer;
+        var form = layui.form;
+        var $ = layui.$;
+
+        // ===== 表格渲染 =====
+        var tableIns = table.render({
+            elem: '#hotTable',
+            url: '/hotRecommend/admin/list',
+            page: { limit: 10, limits: [5, 10, 20, 50] },
+            cols: [[
+                { field:'id', title:'ID', width:80 },
+                { field:'musicId', title:'音乐ID', width:100 },
+                { field:'sortOrder', title:'排序', width:80 },
+                { field:'recommendTitle', title:'推荐标题' },
+                { field:'status', title:'状态', width:80,
+                  templet: function(d){ return d.status==1 ? '启用' : '禁用'; } },
+                { field:'createTime', title:'创建时间', width:170 },
+                { title:'操作', width:160, fixed:'right',
+                  templet: function(d){
+                      return '<a class="layui-btn layui-btn-xs layui-btn-normal" onclick="edit('+d.id+')">编辑</a> ' +
+                             '<a class="layui-btn layui-btn-xs layui-btn-danger" onclick="del('+d.id+')">删除</a>';
+                  }
+                }
+            ]],
+            parseData: function(res){
+                return { code: res.code || 0, msg: res.msg || '', count: res.count || 0, data: res.data || [] };
+            }
+        });
+
+        // ===== 搜索 =====
+        $('#searchBtn').click(function(){
+            var keyword = $('#keyword').val().trim();
+            tableIns.reload({
+                where: { keyword: keyword },
+                page: { curr: 1 }
+            });
+        });
+
+        $('#keyword').keydown(function(e){
+            if(e.keyCode === 13) $('#searchBtn').click();
+        });
+
+        // ===== 编辑 =====
+        window.edit = function(id) {
+            $.get('/hotRecommend/admin/get/' + id, function(res){
+                if(res.code === 0){
+                    openForm(res.data);
+                } else {
+                    layer.msg('获取数据失败', {icon:2});
+                }
+            });
+        };
+
+        // ===== 删除 =====
+        window.del = function(id) {
+            layer.confirm('确定删除该推荐吗？', function(index){
+                $.ajax({
+                    url: '/hotRecommend/admin/delete/' + id,
+                    type: 'DELETE',
+                    success: function(res){
+                        if(res.code === 0){
+                            layer.msg('删除成功', {icon:1});
+                            tableIns.reload();
+                        } else {
+                            layer.msg(res.msg, {icon:2});
+                        }
+                    }
+                });
+                layer.close(index);
+            });
+        };
+
+        // ===== 添加 =====
+        $('#addBtn').click(function(){
+            openForm(null);
+        });
+
+        // ===== 打开表单弹窗 =====
+        function openForm(data) {
+            var isEdit = !!data;
+            var title = isEdit ? '编辑推荐' : '添加推荐';
+            var url = isEdit ? '/hotRecommend/admin/update' : '/hotRecommend/admin/add';
+            var method = isEdit ? 'PUT' : 'POST';
+
+            var tpl = $('#hotFormTpl').html();
+            var index = layer.open({
+                type: 1,
+                title: title,
+                area: ['450px', '380px'],
+                content: tpl,
+                success: function(layero){
+                    // 填充数据（手动）
+                    if(isEdit){
+                        layero.find('#editId').val(data.id);
+                        layero.find('#musicId').val(data.musicId);
+                        layero.find('#sortOrder').val(data.sortOrder || 0);
+                        layero.find('#recommendTitle').val(data.recommendTitle);
+                        layero.find('#status').val(data.status);
+                    } else {
+                        layero.find('#editId').val('');
+                        layero.find('#musicId').val('');
+                        layero.find('#sortOrder').val(0);
+                        layero.find('#recommendTitle').val('');
+                        layero.find('#status').val(1);
+                    }
+                    form.render();
+
+                    // 提交
+                    layero.find('#submitBtn').off('click').on('click', function(){
+                        var formData = {
+                            id: layero.find('#editId').val(),
+                            musicId: parseInt(layero.find('#musicId').val()),
+                            sortOrder: parseInt(layero.find('#sortOrder').val()) || 0,
+                            recommendTitle: layero.find('#recommendTitle').val(),
+                            status: parseInt(layero.find('#status').val())
+                        };
+
+                        if(!formData.musicId){
+                            layer.msg('音乐ID不能为空', {icon:2});
+                            return;
+                        }
+
+                        $.ajax({
+                            url: url,
+                            type: method,
+                            contentType: 'application/json',
+                            data: JSON.stringify(formData),
+                            success: function(res){
+                                if(res.code === 0){
+                                    layer.msg('操作成功', {icon:1});
+                                    layer.close(index);
+                                    tableIns.reload();
+                                } else {
+                                    layer.msg(res.msg, {icon:2});
+                                }
+                            },
+                            error: function(){
+                                layer.msg('请求失败', {icon:2});
+                            }
+                        });
+                    });
+
+                    layero.find('#cancelBtn').off('click').on('click', function(){
+                        layer.close(index);
+                    });
+                }
+            });
+        }
+    });
+</script>
+</body>
+</html>
